@@ -1,39 +1,29 @@
-<script>
-    async function directSearch() {
-        const query = document.getElementById('testInput').value;
-        const status = document.getElementById('status');
-        const API_KEY = "pMRxya1JxKHz9vlAz0IrbCiyYIxsAXvXNgJnEafo0OyXqpUmTGUyIMCHjiqwpM9F";
+export default async function handler(req, res) {
+    const { q } = req.query;
+    const KLIPY_KEY = "pMRxya1JxKHz9vlAz0IrbCiyYIxsAXvXNgJnEafo0OyXqpUmTGUyIMCHjiqwpM9F"; 
 
-        status.innerText = "Connecting...";
+    // Try the "v1" search endpoint with a fallback check
+    const url = `https://api.klipy.com/v1/gifs/search?q=${encodeURIComponent(q)}&per_page=12`;
 
-        try {
-            const response = await fetch(`https://api.klipy.com/v1/gifs/search?q=${encodeURIComponent(query)}&per_page=6`, {
-                method: 'GET',
-                headers: {
-                    'x-api-key': API_KEY,
-                    'Accept': 'application/json'
-                }
-            });
-
-            // STEP 1: Check the status code
-            console.log("Status Code:", response.status);
-
-            // STEP 2: Get the raw text instead of JSON
-            const rawText = await response.text();
-            console.log("Raw Response:", rawText);
-
-            if (!rawText) {
-                status.innerText = "FAILED: Klipy sent an empty response. (Key likely pending)";
-                return;
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 
+                'x-api-key': KLIPY_KEY,
+                'Content-Type': 'application/json'
             }
+        });
 
-            // STEP 3: Only parse if we have text
-            const json = JSON.parse(rawText);
-            status.innerText = "SUCCESS!";
-            // ... (render logic)
-
-        } catch (err) {
-            status.innerText = "ERROR: " + err.message;
+        if (!response.ok) {
+            // This will help us see the SPECIFIC error from Klipy (like "Invalid Key")
+            const errorText = await response.text();
+            return res.status(response.status).json({ error: "Klipy rejected us", detail: errorText });
         }
+
+        const data = await response.json();
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.status(200).json(data);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to connect to Klipy", message: err.message });
     }
-</script>
+}
